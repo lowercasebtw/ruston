@@ -5,7 +5,7 @@ enum JsonObject {
     Object(HashMap<String, JsonObject>),
     Array(Vec<JsonObject>),
     String(String),
-    // Number(u32),
+    Number(f32),
     Boolean(bool),
     Null
 }
@@ -40,7 +40,7 @@ impl JsonParser {
     fn try_consume(&mut self, it: &str) -> bool {
         let len = it.len();
         if self.cursor + len > self.source.len() {
-            return false;
+            return false;    
         }
         let slice = &self.source[self.cursor..self.cursor + len];
         let same = slice == it;
@@ -138,9 +138,26 @@ impl JsonParser {
         panic!("Unexpected end of input whilst parsing boolean");
     }
 
-    // fn parse_number(&mut self) -> JsonObject {
-    //     panic!("todo: number");
-    // }
+    fn parse_number(&mut self) -> JsonObject {
+        let mut is_negative = false;
+        if self.try_consume_ch(b'-') {
+            is_negative = true;
+        } else if self.try_consume_ch(b'+') {
+            is_negative = false;
+        }
+
+        let mut number = 0f32;
+        while !self.is_eof() && self.current().is_ascii_digit() {
+            number *= 10.0;
+            number += (self.current() - b'0') as f32;
+            self.cursor += 1;   
+        }
+
+        return JsonObject::Number(match is_negative {
+            true => -number,
+            _ => number
+        });
+    }
 
     fn parse_null(&mut self) -> JsonObject {
         self.try_consume("null");
@@ -152,22 +169,21 @@ impl JsonParser {
             panic!("Unexpected end of JSON input");
         }
         self.trim_left();
-        let current = self.current();
+        let current = self.current(); 
         return match current {
             b'{' => self.parse_object(),
             b'[' => self.parse_array(),
             b'"' => self.parse_string(),
             b't' | b'f' => self.parse_boolean(),
             b'n' => self.parse_null(),
+            b'-' | b'+' | b'0'..=b'9' => self.parse_number(),
             _ => panic!("Unexpected token '{current}', \"{current}\" is not valid JSON")
         };
-        // else if (!isNaN(Number(current)))
-        //     return this.parse_number();
     }
 }
 
 fn main() {
-    let mut parser: JsonParser = JsonParser::new("[true, false, \"hello\", {}]".to_string());
+    let mut parser: JsonParser = JsonParser::new("[true, false, \"hello\", {}, -12]".to_string());
     let object: JsonObject = parser.parse();
     println!("{:?}", object);
 }
