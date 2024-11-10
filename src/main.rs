@@ -7,7 +7,7 @@ enum JsonObject {
     String(String),
     Number(f32),
     Boolean(bool),
-    Null
+    Null,
 }
 
 struct JsonParser {
@@ -17,37 +17,35 @@ struct JsonParser {
 
 impl JsonParser {
     fn new(input: String) -> Self {
-        return Self {
+        Self {
             source: input,
-            cursor: 0
-        };
+            cursor: 0,
+        }
     }
 
-    fn is_eof(&self) -> bool { return self.cursor >= self.source.len(); }
+    fn is_eof(&self) -> bool { self.cursor >= self.source.len() }
 
     fn current(&self) -> u8 {
         let bytes = self.source.as_bytes();
-        let it = bytes.get(self.cursor).unwrap_or(&0);
-        return *it;
+        *bytes.get(self.cursor).unwrap_or(&0)
     }
 
     fn peek(&self) -> u8 {
         let bytes = self.source.as_bytes();
-        let it = bytes.get(self.cursor + 1).unwrap_or(&0);
-        return *it;
+        *bytes.get(self.cursor + 1).unwrap_or(&0)
     }
-    
+
     fn try_consume(&mut self, it: &str) -> bool {
         let len = it.len();
         if self.cursor + len > self.source.len() {
-            return false;    
+            return false;
         }
         let slice = &self.source[self.cursor..self.cursor + len];
         let same = slice == it;
         if same {
             self.cursor += len;
         }
-        return same;
+        same
     }
 
     fn try_consume_ch(&mut self, ch: u8) -> bool {
@@ -56,7 +54,7 @@ impl JsonParser {
         if same {
             self.cursor += 1;
         }
-        return same;
+        same
     }
 
     fn trim_left(&mut self) {
@@ -73,10 +71,10 @@ impl JsonParser {
         while !self.is_eof() && self.current() != b'"' {
             self.cursor += 1;
         }
-        return match !self.try_consume_ch(b'"') {
+        match !self.try_consume_ch(b'"') {
             true => panic!("Expected close quote whilst parsing string"),
             _ => String::from(&self.source[start..self.cursor - 1])
-        };
+        }
     }
 
     fn parse_object(&mut self) -> JsonObject {
@@ -96,10 +94,10 @@ impl JsonParser {
                 break;
             }
         }
-        return match !self.try_consume_ch(b'}') {
+        match !self.try_consume_ch(b'}') {
             true => panic!("Expected close bracket whilst parsing object"),
             _ => JsonObject::Object(children)
-        };
+        }
     }
 
     fn parse_array(&mut self) -> JsonObject {
@@ -108,7 +106,7 @@ impl JsonParser {
         }
         let mut children: Vec<JsonObject> = Vec::new();
         while !self.is_eof() {
-            children.push(self.parse()); 
+            children.push(self.parse());
             if self.current() == b']' {
                 break;
             }
@@ -118,21 +116,20 @@ impl JsonParser {
             }
             panic!("Unexpected end of input whilst parsing children in array");
         }
-        return match !self.try_consume_ch(b']') {
+        match !self.try_consume_ch(b']') {
             true => panic!("Expected close square bracket whilst parsing array"),
             _ => JsonObject::Array(children)
-        };
+        }
     }
 
     fn parse_string(&mut self) -> JsonObject {
-        return JsonObject::String(self.lex_string());
+        JsonObject::String(self.lex_string())
     }
 
     fn parse_boolean(&mut self) -> JsonObject {
         if self.try_consume("true") {
             return JsonObject::Boolean(true);
-        }
-        else if self.try_consume("false") {
+        } else if self.try_consume("false") {
             return JsonObject::Boolean(false);
         }
         panic!("Unexpected end of input whilst parsing boolean");
@@ -150,18 +147,18 @@ impl JsonParser {
         while !self.is_eof() && self.current().is_ascii_digit() {
             number *= 10.0;
             number += (self.current() - b'0') as f32;
-            self.cursor += 1;   
+            self.cursor += 1;
         }
 
-        return JsonObject::Number(match is_negative {
+        JsonObject::Number(match is_negative {
             true => -number,
             _ => number
-        });
+        })
     }
 
     fn parse_null(&mut self) -> JsonObject {
         self.try_consume("null");
-        return JsonObject::Null;
+        JsonObject::Null
     }
 
     fn parse(&mut self) -> JsonObject {
@@ -169,8 +166,8 @@ impl JsonParser {
             panic!("Unexpected end of JSON input");
         }
         self.trim_left();
-        let current = self.current(); 
-        return match current {
+        let current = self.current();
+        match current {
             b'{' => self.parse_object(),
             b'[' => self.parse_array(),
             b'"' => self.parse_string(),
@@ -178,7 +175,7 @@ impl JsonParser {
             b'n' => self.parse_null(),
             b'-' | b'+' | b'0'..=b'9' => self.parse_number(),
             _ => panic!("Unexpected token '{current}', \"{current}\" is not valid JSON")
-        };
+        }
     }
 }
 
